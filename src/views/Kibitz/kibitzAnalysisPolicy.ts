@@ -36,6 +36,10 @@ export interface KibitzAnalysisGameLike {
     gamedata?: {
         analysis_disabled?: boolean | null;
         disable_analysis?: boolean | null;
+        rengo_teams?: {
+            black?: readonly unknown[] | null;
+            white?: readonly unknown[] | null;
+        } | null;
     } | null;
     players?: {
         black?: unknown;
@@ -43,6 +47,9 @@ export interface KibitzAnalysisGameLike {
     } | null;
     black?: unknown;
     white?: unknown;
+    /** Player ids from a game-history row. Absent on a Kibitz room game. */
+    rengo_black_team?: readonly unknown[] | null;
+    rengo_white_team?: readonly unknown[] | null;
 }
 
 export type KibitzAccessPolicyResult =
@@ -89,11 +96,16 @@ export function isLoggedInKibitzUser(
     return Boolean(user && !user.anonymous);
 }
 
+/** True until the game ends. Correspondence games are `live: false` while they are still being played. */
 export function isActiveGame(game: KibitzAnalysisGameLike | null | undefined): boolean {
     if (!game) {
         return false;
     }
-    return game.ended == null && game.live !== false;
+    return game.ended == null;
+}
+
+function isUserOnTeam(team: readonly unknown[] | null | undefined, userId: number): boolean {
+    return Boolean(team?.some((member) => getId(member) === userId));
 }
 
 export function isActiveAnalysisDisabledGame(
@@ -121,8 +133,19 @@ export function isCurrentUserGamePlayer(
 
     const blackId = getId(game.players?.black) ?? getId(game.black);
     const whiteId = getId(game.players?.white) ?? getId(game.white);
+    if (userId === blackId || userId === whiteId) {
+        return true;
+    }
 
-    return userId === blackId || userId === whiteId;
+    // A Kibitz room's current_game has only black and white. Full game
+    // details carry gamedata.rengo_teams; history rows carry the team id lists.
+    const teams = game.gamedata?.rengo_teams;
+    return (
+        isUserOnTeam(teams?.black, userId) ||
+        isUserOnTeam(teams?.white, userId) ||
+        isUserOnTeam(game.rengo_black_team, userId) ||
+        isUserOnTeam(game.rengo_white_team, userId)
+    );
 }
 
 export function getKibitzAccessPolicyForUser(

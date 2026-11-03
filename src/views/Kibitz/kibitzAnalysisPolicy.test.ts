@@ -231,4 +231,111 @@ describe("kibitzAnalysisPolicy", () => {
     it("isActiveGame: false for null", () => {
         expect(isActiveGame(null)).toBe(false);
     });
+
+    it("blocks a player of an ongoing correspondence game", () => {
+        const game = makeGame({
+            live: false,
+            ended: null,
+            players: {
+                black: { id: 7 },
+                white: { id: 8 },
+            },
+        });
+
+        expect(isActiveGame(game)).toBe(true);
+        expect(isCurrentUserGamePlayer(makeUser(7), game)).toBe(true);
+        expect(getKibitzAccessPolicyForUser(makeUser(7), game)).toEqual({
+            allowed: false,
+            reason: "own-active-game",
+        });
+        expect(getKibitzAccessPolicyForUser(makeUser(8), game)).toEqual({
+            allowed: false,
+            reason: "own-active-game",
+        });
+    });
+
+    it("allows a non-player of an ongoing correspondence game", () => {
+        const game = makeGame({
+            live: false,
+            ended: null,
+            players: {
+                black: { id: 7 },
+                white: { id: 8 },
+            },
+        });
+
+        expect(getKibitzAccessPolicyForUser(makeUser(3), game)).toEqual({ allowed: true });
+    });
+
+    it("allows a player after the game has ended", () => {
+        const game = makeGame({
+            live: false,
+            ended: "2026-04-01T10:00:00Z",
+            players: {
+                black: { id: 7 },
+                white: { id: 8 },
+            },
+        });
+
+        expect(isActiveGame(game)).toBe(false);
+        expect(getKibitzAccessPolicyForUser(makeUser(7), game)).toEqual({ allowed: true });
+    });
+
+    it("blocks a rengo team member who is not the nominal black or white player", () => {
+        const game = makeGame({
+            players: {
+                black: { id: 7 },
+                white: { id: 8 },
+            },
+            gamedata: {
+                rengo_teams: {
+                    black: [{ id: 7 }, { id: 15 }],
+                    white: [{ id: 8 }, { id: 16 }],
+                },
+            },
+        });
+
+        expect(isCurrentUserGamePlayer(makeUser(15), game)).toBe(true);
+        expect(getKibitzAccessPolicyForUser(makeUser(15), game)).toEqual({
+            allowed: false,
+            reason: "own-active-game",
+        });
+        expect(getKibitzAccessPolicyForUser(makeUser(16), game)).toEqual({
+            allowed: false,
+            reason: "own-active-game",
+        });
+        expect(isCurrentUserGamePlayer(makeUser(3), game)).toBe(false);
+        expect(getKibitzAccessPolicyForUser(makeUser(3), game)).toEqual({ allowed: true });
+    });
+
+    it("blocks a rengo team member listed by player id", () => {
+        const game = makeGame({
+            black: 7,
+            white: 8,
+            rengo_black_team: [7, 15],
+            rengo_white_team: [8, 16],
+        });
+
+        expect(isCurrentUserGamePlayer(makeUser(15), game)).toBe(true);
+        expect(getKibitzAccessPolicyForUser(makeUser(15), game)).toEqual({
+            allowed: false,
+            reason: "own-active-game",
+        });
+        expect(getKibitzAccessPolicyForUser(makeUser(3), game)).toEqual({ allowed: true });
+    });
+
+    it("allows a rengo team member after the game has ended", () => {
+        const game = makeGame({
+            ended: "2026-04-01T10:00:00Z",
+            live: false,
+            gamedata: {
+                rengo_teams: {
+                    black: [{ id: 15 }],
+                    white: [{ id: 16 }],
+                },
+            },
+        });
+
+        expect(getKibitzAccessPolicyForUser(makeUser(15), game)).toEqual({ allowed: true });
+    });
 });
