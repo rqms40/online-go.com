@@ -189,6 +189,36 @@ because there is nothing to analyse, and Return to live cannot apply. Without
 a board there is no `GobanContainer` to report resizes, so `GobanView`
 listens to the window itself for as long as it has no controller.
 
+## Preset room game selection
+
+A preset room selects the game everyone watches, and viewers follow that
+selection. Only that selection changes the watched game. The number beside
+the room title is the number of people in the room, and the room shows one
+game at a time. Other games that would also match stay off the board until
+the room selects one of them.
+
+Each preset room has its own filter, and the room title is the one-line
+description of that filter. In definition order the rooms are
+`high-ranked-live`, `mid-ranked-live` and `english-chat-live`. In general
+the filter accepts a live game that is still near the opening, played by the
+players that room is for, such as players above a given rank. Blitz and
+rapid games do not match. The server applies the filter. This client shows
+the game the server selects.
+
+The room keeps the current game until that game ends, waits a few minutes,
+and then selects the next one. The board stays on the finished game during
+the wait, and the room does not switch while the game is still in play.
+While the switch is pending, `preset.selection_status` is `change_pending`.
+`KibitzPresetChangePendingBanner` counts down to `change_effective_at`
+("Next game in m:ss"), then shows "Waiting for the next game…". The room
+chat keeps only the latest switch warning for that pending game. When the
+wait ends and no game matches, the center shows "Looking for a suitable
+live game."
+
+A user room keeps the game its owner sets with Change live game. The owner
+can set a new game at any time, including after the current game ends. Until
+the owner chooses another game, the finished game stays on the board.
+
 ## Game page cards
 
 The Game page lists the kibitz rooms whose current board is that game.
